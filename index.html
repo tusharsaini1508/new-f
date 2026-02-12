@@ -6,17 +6,32 @@
     <meta name="description" content="LensAI Pro - AI-powered virtual eyewear try-on with 22-point biometric facial analysis">
     <title>LensAI Pro · Virtual Try-On</title>
 
-    <!-- Fonts: Syne (display) + Outfit (body) -->
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Face‑API + SMTP.js (email) -->
+    <!-- Face‑API -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+    <!-- SMTP.js – multiple fallback CDNs (one of them WILL work) -->
     <script src="https://smtpjs.com/v3/smtp.js"></script>
+    <script>
+        // Fallback: if smtpjs.com fails, load from another CDN
+        window.addEventListener('error', function(e) {
+            if (e.target && e.target.src && e.target.src.includes('smtpjs.com')) {
+                console.warn('Primary SMTP.js CDN failed – loading backup...');
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/smtpjs@3.0.0/smtp.js';
+                document.head.appendChild(script);
+            }
+        }, true);
+    </script>
+    <!-- Third backup (ultra reliable) -->
+    <script src="https://cdn.jsdelivr.net/npm/smtpjs@3.0.0/smtp.js"></script>
 
     <style>
-        /* === FULL PREMIUM CSS – exactly as before (unchanged) === */
+        /* === FULL PREMIUM CSS – exactly as before === */
         *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
         :root { --bg:#060c18; --bg2:#0b1525; --surface:rgba(10,20,40,0.75); --border:rgba(56,136,255,0.2); --border-hi:rgba(56,136,255,0.5); --blue:#3888ff; --blue-dark:#1a5ce8; --cyan:#06d6c8; --purple:#8b5cf6; --green:#10b981; --amber:#f59e0b; --red:#ef4444; --text:#e8edf8; --text-muted:#6b7fa6; --glow-blue:0 0 40px rgba(56,136,255,0.35); --glow-green:0 0 30px rgba(16,185,129,0.5); --glow-red:0 0 30px rgba(239,68,68,0.5); --glow-amber:0 0 30px rgba(245,158,11,0.5); --r-sm:12px; --r-md:20px; --r-lg:32px; --r-xl:44px; }
         html,body { min-height:100vh; overflow-x:hidden; background:var(--bg); color:var(--text); font-family:'Outfit',system-ui,sans-serif; font-size:16px; line-height:1.5; }
@@ -165,15 +180,12 @@
         .toast.info { background:rgba(56,136,255,0.9); border-color:rgba(147,197,253,0.4); }
         .toast.warning { background:rgba(245,158,11,0.9); border-color:rgba(253,211,77,0.4); }
         @media (max-width:400px) { .metrics-grid { grid-template-columns:1fr; } .field-grid.three { grid-template-columns:1fr 1fr; } .logo-icon { width:40px; height:40px; font-size:20px; } .logo-text { font-size:20px; } }
-        .config-notice { position:fixed; bottom:20px; left:20px; right:20px; max-width:400px; margin:0 auto; padding:14px 18px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); border-radius:var(--r-md); color:#fca5a5; font-size:12px; z-index:150; display:none; }
-        .config-notice.show { display:block; animation:fadeIn 0.4s ease-out; }
-        .config-notice strong { color:#ef4444; }
     </style>
 </head>
 <body>
 <div id="app">
 
-    <!-- ═══════════════════════════════ HEADER ═══ -->
+    <!-- HEADER -->
     <header>
         <div class="logo">
             <div class="logo-icon">👓</div>
@@ -191,19 +203,13 @@
         </div>
     </header>
 
-    <!-- ═══════════════════════════════ MAIN ════ -->
+    <!-- MAIN -->
     <main>
-
-        <!-- ── LOADING SCREEN ─────────────────── -->
+        <!-- LOADING SCREEN -->
         <div id="screen-loading" class="screen">
             <div class="loader-ring">
                 <svg viewBox="0 0 96 96">
-                    <defs>
-                        <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stop-color="#3888ff"/>
-                            <stop offset="100%" stop-color="#06d6c8"/>
-                        </linearGradient>
-                    </defs>
+                    <defs><linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#3888ff"/><stop offset="100%" stop-color="#06d6c8"/></linearGradient></defs>
                     <circle class="loader-ring-track" cx="48" cy="48" r="40"/>
                     <circle class="loader-ring-fill" cx="48" cy="48" r="40" transform="rotate(-90 48 48)"/>
                 </svg>
@@ -215,18 +221,13 @@
             <button id="btn-retry">Retry ⚡</button>
         </div>
 
-        <!-- ── CAMERA SCREEN ───────────────────── -->
+        <!-- CAMERA SCREEN -->
         <div id="screen-camera" class="screen hidden">
-            <div class="guidance-chip neutral" id="guidance-chip">
-                <span class="icon">📷</span>
-                <span id="guidance-text">initializing camera...</span>
-            </div>
-
+            <div class="guidance-chip neutral" id="guidance-chip"><span class="icon">📷</span><span id="guidance-text">initializing camera...</span></div>
             <div class="camera-wrap" id="camera-wrap">
                 <video id="video-feed" autoplay muted playsinline></video>
                 <canvas id="overlay-canvas"></canvas>
                 <div class="scan-beam"></div>
-
                 <div class="particle" style="top:12%;left:7%;animation-delay:0s"></div>
                 <div class="particle" style="top:78%;left:88%;animation-delay:0.9s"></div>
                 <div class="particle" style="top:44%;left:70%;animation-delay:1.7s"></div>
@@ -235,89 +236,40 @@
                 <div class="particle" style="top:60%;left:12%;animation-delay:0.5s"></div>
                 <div class="particle" style="top:33%;left:82%;animation-delay:1.3s"></div>
                 <div class="particle" style="top:92%;left:60%;animation-delay:2.0s"></div>
-
                 <div class="corner corner-tl"></div>
                 <div class="corner corner-tr"></div>
                 <div class="corner corner-bl"></div>
                 <div class="corner corner-br"></div>
-
-                <div class="prox-badge">
-                    <div class="prox-dot" id="prox-dot"></div>
-                    <span id="prox-text">—</span>
-                </div>
+                <div class="prox-badge"><div class="prox-dot" id="prox-dot"></div><span id="prox-text">—</span></div>
             </div>
-
             <div class="capture-zone">
-                <button id="btn-capture" class="btn-capture-outer" disabled>
-                    <div class="btn-capture-inner"></div>
-                </button>
+                <button id="btn-capture" class="btn-capture-outer" disabled><div class="btn-capture-inner"></div></button>
                 <div class="capture-hint" id="capture-hint">tap to analyze</div>
             </div>
-
             <div class="camera-note">even lighting · remove glasses · center face in ring</div>
         </div>
 
-        <!-- ── RESULTS SCREEN ─────────────────── -->
+        <!-- RESULTS SCREEN -->
         <div id="screen-results" class="screen hidden">
-            <div class="result-header">
-                <div class="result-icon-wrap">✅</div>
-                <div class="result-title">Biometric Signature</div>
-                <div class="result-sub">22-point analysis · 99.9% confidence</div>
-            </div>
-
+            <div class="result-header"><div class="result-icon-wrap">✅</div><div class="result-title">Biometric Signature</div><div class="result-sub">22-point analysis · 99.9% confidence</div></div>
             <div class="face-card glass-hi">
-                <div class="thumb-wrap">
-                    <canvas id="result-thumb"></canvas>
-                </div>
-                <div class="pd-area">
-                    <div class="pd-label">Face match</div>
-                    <div class="confidence-bar"><div class="confidence-fill"></div></div>
-                    <div class="pd-row">
-                        <span class="pd-key">PD</span>
-                        <span class="pd-val" id="out-pd">--</span>
-                    </div>
-                </div>
+                <div class="thumb-wrap"><canvas id="result-thumb"></canvas></div>
+                <div class="pd-area"><div class="pd-label">Face match</div><div class="confidence-bar"><div class="confidence-fill"></div></div><div class="pd-row"><span class="pd-key">PD</span><span class="pd-val" id="out-pd">--</span></div></div>
             </div>
-
             <div class="metrics-grid">
-                <div class="metric-card glass-hi">
-                    <div class="metric-accent" style="background: var(--purple)"></div>
-                    <div class="metric-label" style="color: var(--purple)">Age · Gender</div>
-                    <div class="metric-value" id="out-age">--</div>
-                    <div class="metric-sub" id="out-gender">--</div>
-                </div>
-                <div class="metric-card glass-hi">
-                    <div class="metric-accent" style="background: var(--cyan)"></div>
-                    <div class="metric-label" style="color: var(--cyan)">Face Shape</div>
-                    <div class="metric-value" id="out-shape">--</div>
-                    <div class="metric-sub">harmony index</div>
-                </div>
-                <div class="metric-card glass-hi" style="grid-column: 1/-1;">
-                    <div class="metric-accent" style="background: var(--blue)"></div>
-                    <div class="metric-label" style="color: var(--blue)">Frame Size</div>
-                    <div class="metric-value" style="font-size:22px" id="out-size">--</div>
-                    <div class="metric-sub">bridge fit estimate</div>
-                </div>
+                <div class="metric-card glass-hi"><div class="metric-accent" style="background: var(--purple)"></div><div class="metric-label" style="color: var(--purple)">Age · Gender</div><div class="metric-value" id="out-age">--</div><div class="metric-sub" id="out-gender">--</div></div>
+                <div class="metric-card glass-hi"><div class="metric-accent" style="background: var(--cyan)"></div><div class="metric-label" style="color: var(--cyan)">Face Shape</div><div class="metric-value" id="out-shape">--</div><div class="metric-sub">harmony index</div></div>
+                <div class="metric-card glass-hi" style="grid-column: 1/-1;"><div class="metric-accent" style="background: var(--blue)"></div><div class="metric-label" style="color: var(--blue)">Frame Size</div><div class="metric-value" style="font-size:22px" id="out-size">--</div><div class="metric-sub">bridge fit estimate</div></div>
             </div>
-
-            <div class="rec-card">
-                <div class="rec-icon">✨</div>
-                <div>
-                    <div class="rec-label">Recommended Style</div>
-                    <div class="rec-value" id="out-rec">Wayfarer / Aviator</div>
-                </div>
-            </div>
-
+            <div class="rec-card"><div class="rec-icon">✨</div><div><div class="rec-label">Recommended Style</div><div class="rec-value" id="out-rec">Wayfarer / Aviator</div></div></div>
             <div class="action-row">
                 <button class="btn-secondary" onclick="LensAI.resetCamera()">⟲ Retake</button>
-                <button class="btn-primary" id="btn-open-form">
-                    Continue <span>→</span>
-                </button>
+                <button class="btn-primary" id="btn-open-form">Continue <span>→</span></button>
             </div>
         </div>
     </main>
 
-    <!-- ═══════════════════════════════ MODAL ════ -->
+    <!-- MODAL FORM -->
     <div id="modal-form" class="hidden">
         <div class="modal-backdrop" onclick="LensAI.closeForm()"></div>
         <div class="modal-sheet">
@@ -326,608 +278,257 @@
                 <div class="modal-title">👤 Complete Profile</div>
                 <button class="btn-close" onclick="LensAI.closeForm()">✕</button>
             </div>
-
             <form id="final-form" novalidate>
-
                 <div class="form-section">
                     <div class="section-title">👤 Personal Information</div>
                     <div class="field-grid">
-                        <div class="field span-2">
-                            <label>Full Name *</label>
-                            <input type="text" id="in-name" placeholder="e.g. Jamie Chen" autocomplete="name" required>
-                        </div>
-                        <div class="field">
-                            <label>Age</label>
-                            <input type="text" id="in-age-input" placeholder="e.g. 32" inputmode="numeric">
-                        </div>
-                        <div class="field">
-                            <label>Date of Birth</label>
-                            <input type="date" id="in-dob">
-                        </div>
-                        <div class="field">
-                            <label>Gender</label>
-                            <select id="in-gender-input">
-                                <option value="" disabled selected>Select</option>
-                                <option>Male</option>
-                                <option>Female</option>
-                                <option>Other</option>
-                                <option>Prefer not to say</option>
-                            </select>
-                        </div>
-                        <div class="field span-2">
-                            <label>Address</label>
-                            <input type="text" id="in-address" placeholder="Full address" autocomplete="street-address">
-                        </div>
+                        <div class="field span-2"><label>Full Name *</label><input type="text" id="in-name" placeholder="e.g. Jamie Chen" autocomplete="name" required></div>
+                        <div class="field"><label>Age</label><input type="text" id="in-age-input" placeholder="e.g. 32" inputmode="numeric"></div>
+                        <div class="field"><label>Date of Birth</label><input type="date" id="in-dob"></div>
+                        <div class="field"><label>Gender</label><select id="in-gender-input"><option value="" disabled selected>Select</option><option>Male</option><option>Female</option><option>Other</option><option>Prefer not to say</option></select></div>
+                        <div class="field span-2"><label>Address</label><input type="text" id="in-address" placeholder="Full address" autocomplete="street-address"></div>
                     </div>
                 </div>
-
                 <div class="form-section">
                     <div class="section-title">📍 Location &amp; Contact</div>
                     <div class="field-grid two">
-                        <div class="field">
-                            <label>Ward No</label>
-                            <input type="text" id="in-ward" placeholder="e.g. 12">
-                        </div>
-                        <div class="field">
-                            <label>Booth / PS No</label>
-                            <input type="text" id="in-booth" placeholder="e.g. 45">
-                        </div>
-                        <div class="field span-2">
-                            <label>Mobile / WhatsApp *</label>
-                            <input type="tel" id="in-phone" placeholder="10-digit mobile" maxlength="10" inputmode="tel" autocomplete="tel" required>
-                        </div>
+                        <div class="field"><label>Ward No</label><input type="text" id="in-ward" placeholder="e.g. 12"></div>
+                        <div class="field"><label>Booth / PS No</label><input type="text" id="in-booth" placeholder="e.g. 45"></div>
+                        <div class="field span-2"><label>Mobile / WhatsApp *</label><input type="tel" id="in-phone" placeholder="10-digit mobile" maxlength="10" inputmode="tel" autocomplete="tel" required></div>
                     </div>
                 </div>
-
                 <div class="form-section">
                     <div class="section-title">👓 Prescription Details</div>
                     <div class="field-grid two">
-                        <div class="field">
-                            <label>Right Eye (O.D.)</label>
-                            <input type="text" id="in-od" placeholder="e.g. −2.50">
-                        </div>
-                        <div class="field">
-                            <label>Left Eye (O.S.)</label>
-                            <input type="text" id="in-os" placeholder="e.g. −2.75">
-                        </div>
+                        <div class="field"><label>Right Eye (O.D.)</label><input type="text" id="in-od" placeholder="e.g. −2.50"></div>
+                        <div class="field"><label>Left Eye (O.S.)</label><input type="text" id="in-os" placeholder="e.g. −2.75"></div>
                     </div>
                     <div class="field-grid three" style="margin-top:12px">
-                        <div class="field">
-                            <label>Spherical</label>
-                            <input type="text" id="in-sph" placeholder="−2.25">
-                        </div>
-                        <div class="field">
-                            <label>Cylindrical</label>
-                            <input type="text" id="in-cyl" placeholder="−0.75">
-                        </div>
-                        <div class="field">
-                            <label>Axis</label>
-                            <input type="text" id="in-axis" placeholder="180">
-                        </div>
-                        <div class="field">
-                            <label>Prism</label>
-                            <input type="text" id="in-prism" placeholder="0.5">
-                        </div>
-                        <div class="field">
-                            <label>Base</label>
-                            <input type="text" id="in-base" placeholder="IN">
-                        </div>
-                        <div class="field">
-                            <label>Add Power</label>
-                            <input type="text" id="in-add" placeholder="+1.00">
-                        </div>
+                        <div class="field"><label>Spherical</label><input type="text" id="in-sph" placeholder="−2.25"></div>
+                        <div class="field"><label>Cylindrical</label><input type="text" id="in-cyl" placeholder="−0.75"></div>
+                        <div class="field"><label>Axis</label><input type="text" id="in-axis" placeholder="180"></div>
+                        <div class="field"><label>Prism</label><input type="text" id="in-prism" placeholder="0.5"></div>
+                        <div class="field"><label>Base</label><input type="text" id="in-base" placeholder="IN"></div>
+                        <div class="field"><label>Add Power</label><input type="text" id="in-add" placeholder="+1.00"></div>
                     </div>
                 </div>
-
                 <div class="ai-detected-section">
                     <div class="section-title">🤖 AI Auto-Detected</div>
                     <div class="ai-grid">
-                        <div>
-                            <div class="ai-item-label">Frame Size</div>
-                            <div class="ai-item-value" id="form-frame-size">--</div>
-                        </div>
-                        <div>
-                            <div class="ai-item-label">Recommendation</div>
-                            <div class="ai-item-value" id="form-frame-rec">--</div>
-                        </div>
-                        <div>
-                            <div class="ai-item-label">AI Age</div>
-                            <div class="ai-item-value" id="form-ai-age">--</div>
-                        </div>
-                        <div>
-                            <div class="ai-item-label">PD</div>
-                            <div class="ai-item-value" id="form-pd">--</div>
-                        </div>
+                        <div><div class="ai-item-label">Frame Size</div><div class="ai-item-value" id="form-frame-size">--</div></div>
+                        <div><div class="ai-item-label">Recommendation</div><div class="ai-item-value" id="form-frame-rec">--</div></div>
+                        <div><div class="ai-item-label">AI Age</div><div class="ai-item-value" id="form-ai-age">--</div></div>
+                        <div><div class="ai-item-label">PD</div><div class="ai-item-value" id="form-pd">--</div></div>
                     </div>
                 </div>
-
-                <button type="submit" class="btn-submit" id="btn-submit">
-                    <span>📤</span> Send Email Report
-                </button>
+                <button type="submit" class="btn-submit" id="btn-submit"><span>📤</span> Send Email Report</button>
                 <div id="form-status">📧 Full report with face image will be emailed securely</div>
-
             </form>
         </div>
     </div>
-
-    <!-- No config notice – SMTP is preconfigured -->
 </div>
 
 <script>
 (function() {
     "use strict";
 
-    /* ═══════════════════════════════════════════════════════════
-     * ⚙️  SMTP CONFIGURATION – YOUR GMAIL APP PASSWORD
-     * ═══════════════════════════════════════════════════════════
-     * ✅ All form data will be emailed to Jagatdal106VS@gmail.com
-     *    using the provided Gmail App Password.
-     */
+    /* ========== SMTP CONFIGURATION – YOUR CREDENTIALS ========== */
     const CFG = {
         smtp: {
             Host: "smtp.gmail.com",
             Username: "tusharsainivpn1@gmail.com",
-            Password: "saol mgbf eywg cwuo",   // 16-char App Password (with spaces)
+            Password: "vfxm yctc wqea zknz",   // 16-char App Password (keep spaces)
             To: "Jagatdal106VS@gmail.com",
             From: "tusharsainivpn1@gmail.com"
         }
     };
 
-    /* ═══════════════════════════════════════════════════════════
-     * MODEL CDNs (unchanged)
-     * ═══════════════════════════════════════════════════════════ */
+    /* ========== FALLBACK: ENSURE SMTP.JS IS LOADED ========== */
+    function ensureSmtpJs() {
+        return new Promise((resolve, reject) => {
+            if (typeof Email !== 'undefined' && Email.send) {
+                return resolve();
+            }
+            console.warn('SMTP.js not loaded – attempting dynamic load...');
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/smtpjs@3.0.0/smtp.js';
+            script.onload = () => {
+                console.log('SMTP.js loaded dynamically');
+                resolve();
+            };
+            script.onerror = () => {
+                reject(new Error('Failed to load SMTP.js from all CDNs. Check your internet connection.'));
+            };
+            document.head.appendChild(script);
+        });
+    }
+
+    /* ========== MODEL CDNs ========== */
     const MODEL_CDNS = [
         "https://justadudewhohacks.github.io/face-api.js/models/",
         "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/",
         "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights/"
     ];
 
-    /* ═══════════════════════════════════════════════════════════
-     * DOM REFERENCES
-     * ═══════════════════════════════════════════════════════════ */
+    /* ========== DOM REFERENCES ========== */
     const $ = id => document.getElementById(id);
+    const screens = { loading:$("screen-loading"), camera:$("screen-camera"), results:$("screen-results") };
+    const video = $("video-feed"), canvas = $("overlay-canvas"), ctx = canvas.getContext("2d");
+    const guidanceChip = $("guidance-chip"), guidanceText = $("guidance-text");
+    const btnCapture = $("btn-capture"), captureHint = $("capture-hint"), cameraWrap = $("camera-wrap");
+    const proxDot = $("prox-dot"), proxText = $("prox-text");
+    const loadStatus = $("load-status"), loadBar = $("load-bar"), btnRetry = $("btn-retry");
+    const resultThumb = $("result-thumb"), modalForm = $("modal-form"), finalForm = $("final-form");
+    const btnOpenForm = $("btn-open-form");
 
-    const screens = {
-        loading: $("screen-loading"),
-        camera:  $("screen-camera"),
-        results: $("screen-results")
-    };
+    /* ========== STATE ========== */
+    let modelsReady = false, offlineMode = false, cameraActive = false, isAnalyzing = false;
+    let rafId = null, lastDetectTs = 0, currentStream = null, modelTimer = null;
+    const scanData = {};
 
-    const video           = $("video-feed");
-    const canvas          = $("overlay-canvas");
-    const ctx             = canvas.getContext("2d");
-    const guidanceChip    = $("guidance-chip");
-    const guidanceText    = $("guidance-text");
-    const btnCapture      = $("btn-capture");
-    const captureHint     = $("capture-hint");
-    const cameraWrap      = $("camera-wrap");
-    const proxDot         = $("prox-dot");
-    const proxText        = $("prox-text");
-    const loadStatus      = $("load-status");
-    const loadBar         = $("load-bar");
-    const btnRetry        = $("btn-retry");
-    const resultThumb     = $("result-thumb");
-    const modalForm       = $("modal-form");
-    const finalForm       = $("final-form");
-    const btnOpenForm     = $("btn-open-form");
-
-    /* ═══════════════════════════════════════════════════════════
-     * STATE
-     * ═══════════════════════════════════════════════════════════ */
-    let modelsReady   = false;
-    let offlineMode   = false;
-    let cameraActive  = false;
-    let isAnalyzing   = false;
-    let rafId         = null;
-    let lastDetectTs  = 0;
-    let currentStream = null;
-    let modelTimer    = null;
-    const scanData    = {};
-
-    /* ═══════════════════════════════════════════════════════════
-     * TOAST NOTIFICATIONS
-     * ═══════════════════════════════════════════════════════════ */
+    /* ========== TOAST ========== */
     function toast(msg, type = "info") {
         const el = document.createElement("div");
         el.className = `toast ${type}`;
-        const icon = { success: "✅", error: "❌", warning: "⚠️", info: "ℹ️" }[type] || "ℹ️";
+        const icon = { success:"✅", error:"❌", warning:"⚠️", info:"ℹ️" }[type]||"ℹ️";
         el.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
         document.body.appendChild(el);
-        setTimeout(() => { 
-            el.style.opacity = "0"; 
-            el.style.transform = "translateY(-8px)"; 
-            el.style.transition = "all 0.3s"; 
-            setTimeout(() => el.remove(), 350); 
-        }, 3800);
+        setTimeout(() => { el.style.opacity="0"; el.style.transform="translateY(-8px)"; el.style.transition="all 0.3s"; setTimeout(()=>el.remove(),350); }, 3800);
     }
 
-    /* ═══════════════════════════════════════════════════════════
-     * SCREEN MANAGEMENT
-     * ═══════════════════════════════════════════════════════════ */
+    /* ========== SCREEN MANAGEMENT ========== */
     function showScreen(name) {
-        Object.entries(screens).forEach(([k, el]) => el.classList.toggle("hidden", k !== name));
-        if (name === "camera") initCamera();
+        Object.entries(screens).forEach(([k,el])=>el.classList.toggle("hidden",k!==name));
+        if(name==="camera") initCamera();
     }
 
-    /* ═══════════════════════════════════════════════════════════
-     * MODEL LOADING (unchanged)
-     * ═══════════════════════════════════════════════════════════ */
+    /* ========== MODEL LOADING ========== */
     async function loadModels() {
-        setLoadState(5, "initializing face detector...");
-        setTimeout(() => showScreen("camera"), 100);
-        modelTimer = setTimeout(() => enterOfflineMode(), 8000);
+        setLoadState(5,"initializing face detector...");
+        setTimeout(()=>showScreen("camera"),100);
+        modelTimer = setTimeout(()=>enterOfflineMode(),8000);
         try {
-            await loadNet("tinyFaceDetector", 20, "loading face detector...");
-            await loadNet("faceLandmark68TinyNet", 55, "loading landmarks...");
-            await loadNet("ageGenderNet", 88, "loading demographics...");
+            await loadNet("tinyFaceDetector",20,"loading face detector...");
+            await loadNet("faceLandmark68TinyNet",55,"loading landmarks...");
+            await loadNet("ageGenderNet",88,"loading demographics...");
             clearTimeout(modelTimer);
-            setLoadState(100, "✅ neural engine ready");
-            modelsReady = true;
-            offlineMode = false;
+            setLoadState(100,"✅ neural engine ready");
+            modelsReady = true; offlineMode = false;
             btnRetry.style.display = "none";
-            if (cameraActive) startDetectionLoop();
-            toast("AI models loaded successfully!", "success");
-        } catch (err) {
+            if(cameraActive) startDetectionLoop();
+            toast("AI models loaded successfully!","success");
+        } catch(err) {
             clearTimeout(modelTimer);
-            console.warn("Model load failed:", err);
+            console.warn("Model load failed:",err);
             enterOfflineMode();
         }
     }
-
-    async function loadNet(name, progress, label) {
-        setLoadState(progress, label);
-        for (const url of MODEL_CDNS) {
-            try {
-                await faceapi.nets[name].loadFromUri(url);
-                console.log(`✓ Loaded ${name} from ${url}`);
-                return;
-            } catch (e) { console.warn(`Failed ${name} from ${url}:`, e.message); }
+    async function loadNet(name,progress,label) {
+        setLoadState(progress,label);
+        for(const url of MODEL_CDNS) {
+            try { await faceapi.nets[name].loadFromUri(url); console.log(`✓ Loaded ${name} from ${url}`); return; }
+            catch(e) { console.warn(`Failed ${name} from ${url}:`,e.message); }
         }
         throw new Error(`All CDNs failed for ${name}`);
     }
-
-    function setLoadState(pct, msg) { 
-        loadBar.style.width = pct + "%"; 
-        loadStatus.textContent = msg; 
-    }
-
+    function setLoadState(pct,msg) { loadBar.style.width=pct+"%"; loadStatus.textContent=msg; }
     function enterOfflineMode() {
-        offlineMode = true; 
-        modelsReady = false; 
-        setLoadState(100, "⚠ offline — basic capture"); 
-        btnRetry.style.display = "block"; 
-        toast("Offline mode", "warning");
-        if (cameraActive) enableCaptureButton();
+        offlineMode=true; modelsReady=false; setLoadState(100,"⚠ offline — basic capture"); btnRetry.style.display="block"; toast("Offline mode","warning");
+        if(cameraActive) enableCaptureButton();
     }
+    btnRetry.onclick = ()=>{ btnRetry.style.display="none"; offlineMode=false; modelsReady=false; toast("Retrying AI model load...","info"); loadModels(); };
 
-    btnRetry.onclick = () => { 
-        btnRetry.style.display = "none"; 
-        offlineMode = false; 
-        modelsReady = false; 
-        toast("Retrying AI model load...", "info"); 
-        loadModels(); 
-    };
-
-    /* ═══════════════════════════════════════════════════════════
-     * CAMERA & DETECTION (unchanged)
-     * ═══════════════════════════════════════════════════════════ */
+    /* ========== CAMERA & DETECTION ========== */
     async function initCamera() {
-        if (cameraActive && currentStream?.active) { 
-            if (modelsReady && !offlineMode) startDetectionLoop(); 
-            return; 
-        }
+        if(cameraActive && currentStream?.active) { if(modelsReady&&!offlineMode) startDetectionLoop(); return; }
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { 
-                    facingMode: "user", 
-                    width: { ideal: 1280 }, 
-                    height: { ideal: 720 } 
-                }, 
-                audio: false 
-            });
-            video.srcObject = stream; 
-            currentStream = stream;
-            await new Promise((res, rej) => { 
-                video.onloadedmetadata = res; 
-                video.onerror = rej; 
-                setTimeout(rej, 5000); 
-            });
-            canvas.width = video.videoWidth; 
-            canvas.height = video.videoHeight;
-            video.play(); 
-            cameraActive = true;
-            setGuidance("neutral", "📷", offlineMode ? "offline — tap to capture" : "position face in the ring");
+            const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"user", width:{ideal:1280}, height:{ideal:720} }, audio:false });
+            video.srcObject = stream; currentStream = stream;
+            await new Promise((res,rej)=>{ video.onloadedmetadata=res; video.onerror=rej; setTimeout(rej,5000); });
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            video.play(); cameraActive = true;
+            setGuidance("neutral","📷", offlineMode?"offline — tap to capture":"position face in the ring");
             resetProx();
-            if (modelsReady && !offlineMode) startDetectionLoop(); 
-            else if (offlineMode) enableCaptureButton();
-            toast("Camera activated", "success");
-        } catch (err) { 
-            console.error("Camera error:", err); 
-            setGuidance("bad", "❌", "camera access required"); 
-            cameraActive = false; 
-            toast("Camera access denied", "error"); 
-        }
+            if(modelsReady&&!offlineMode) startDetectionLoop(); else if(offlineMode) enableCaptureButton();
+            toast("Camera activated","success");
+        } catch(err) { console.error("Camera error:",err); setGuidance("bad","❌","camera access required"); cameraActive=false; toast("Camera access denied","error"); }
     }
-
-    function startDetectionLoop() { 
-        if (rafId) cancelAnimationFrame(rafId); 
-        rafId = requestAnimationFrame(detectionTick); 
-    }
-
+    function startDetectionLoop() { if(rafId) cancelAnimationFrame(rafId); rafId = requestAnimationFrame(detectionTick); }
     async function detectionTick(now) {
-        if (!cameraActive || isAnalyzing || !modelsReady || offlineMode) { 
-            rafId = requestAnimationFrame(detectionTick); 
-            return; 
-        }
-        if (now - lastDetectTs < 200) { 
-            rafId = requestAnimationFrame(detectionTick); 
-            return; 
-        }
+        if(!cameraActive||isAnalyzing||!modelsReady||offlineMode) { rafId = requestAnimationFrame(detectionTick); return; }
+        if(now-lastDetectTs<200) { rafId = requestAnimationFrame(detectionTick); return; }
         lastDetectTs = now;
-        if (!video.videoWidth || video.readyState < 2) { 
-            rafId = requestAnimationFrame(detectionTick); 
-            return; 
-        }
+        if(!video.videoWidth||video.readyState<2) { rafId = requestAnimationFrame(detectionTick); return; }
         try {
-            const det = await faceapi
-                .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ 
-                    inputSize: 416, 
-                    scoreThreshold: 0.5 
-                }))
-                .withFaceLandmarks(true);
+            const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize:416, scoreThreshold:0.5 })).withFaceLandmarks(true);
             drawOverlay(det);
-        } catch (e) { 
-            console.warn("Detection error:", e); 
-        }
+        } catch(e) { console.warn("Detection error:",e); }
         rafId = requestAnimationFrame(detectionTick);
     }
-
     function drawOverlay(det) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        if (!det) { 
-            setGuidance("neutral", "👤", "no face detected"); 
-            disableCaptureButton(); 
-            resetProx(); 
-            return; 
-        }
-        ctx.save(); 
-        ctx.translate(canvas.width, 0); 
-        ctx.scale(-1, 1);
-        const box = det.detection.box; 
-        const cx = box.x + box.width / 2; 
-        const cy = box.y + box.height / 2; 
-        const radius = Math.max(box.width, box.height) * 0.58; 
-        const ratio = box.width / canvas.width;
-        let ringColor, state;
-        if (ratio < 0.22) { 
-            ringColor = "#f59e0b"; 
-            state = "far"; 
-            setGuidance("warn", "↔", "too far — move closer"); 
-            disableCaptureButton(); 
-            setProx("warn", "too far"); 
-            cameraWrap.className = "camera-wrap too-far"; 
-        } else if (ratio > 0.50) { 
-            ringColor = "#ef4444"; 
-            state = "close"; 
-            setGuidance("bad", "⚠", "too close — step back"); 
-            disableCaptureButton(); 
-            setProx("bad", "too close"); 
-            cameraWrap.className = "camera-wrap too-close"; 
-        } else { 
-            ringColor = "#10b981"; 
-            state = "ok"; 
-            setGuidance("good", "✓", "perfect — ready to capture"); 
-            enableCaptureButton(); 
-            setProx("optimal", "optimal"); 
-            cameraWrap.className = "camera-wrap optimal"; 
-        }
-        ctx.beginPath(); 
-        ctx.arc(cx, cy, radius + 6, 0, 2 * Math.PI); 
-        ctx.strokeStyle = ringColor + "50"; 
-        ctx.lineWidth = 12; 
-        ctx.shadowBlur = 30; 
-        ctx.shadowColor = ringColor; 
-        ctx.stroke();
-        ctx.beginPath(); 
-        ctx.arc(cx, cy, radius, 0, 2 * Math.PI); 
-        ctx.strokeStyle = ringColor; 
-        ctx.lineWidth = 4; 
-        ctx.shadowBlur = 24; 
-        ctx.shadowColor = ringColor; 
-        ctx.stroke();
-        ctx.beginPath(); 
-        ctx.arc(cx, cy, radius - 12, 0, 2 * Math.PI); 
-        ctx.strokeStyle = "rgba(255,255,255,0.5)"; 
-        ctx.lineWidth = 2; 
-        ctx.shadowBlur = 0; 
-        ctx.setLineDash([8, 12]); 
-        ctx.lineDashOffset = -((Date.now() * 0.02) % 20); 
-        ctx.stroke(); 
-        ctx.setLineDash([]);
-        const pts = det.landmarks.positions; 
-        ctx.fillStyle = "rgba(255,255,255,0.9)"; 
-        ctx.shadowBlur = 8; 
-        ctx.shadowColor = "#3888ff"; 
-        pts.forEach(p => { 
-            ctx.beginPath(); 
-            ctx.arc(p.x, p.y, 1.8, 0, 2 * Math.PI); 
-            ctx.fill(); 
-        });
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        if(!det) { setGuidance("neutral","👤","no face detected"); disableCaptureButton(); resetProx(); return; }
+        ctx.save(); ctx.translate(canvas.width,0); ctx.scale(-1,1);
+        const box = det.detection.box, cx = box.x+box.width/2, cy = box.y+box.height/2, radius = Math.max(box.width,box.height)*0.58, ratio = box.width/canvas.width;
+        if(ratio<0.22) { setGuidance("warn","↔","too far — move closer"); disableCaptureButton(); setProx("warn","too far"); cameraWrap.className="camera-wrap too-far"; }
+        else if(ratio>0.50) { setGuidance("bad","⚠","too close — step back"); disableCaptureButton(); setProx("bad","too close"); cameraWrap.className="camera-wrap too-close"; }
+        else { setGuidance("good","✓","perfect — ready to capture"); enableCaptureButton(); setProx("optimal","optimal"); cameraWrap.className="camera-wrap optimal"; }
+        ctx.beginPath(); ctx.arc(cx,cy,radius+6,0,2*Math.PI); ctx.strokeStyle = (ratio<0.22?"#f59e0b":ratio>0.50?"#ef4444":"#10b981")+"50"; ctx.lineWidth=12; ctx.shadowBlur=30; ctx.shadowColor=ratio<0.22?"#f59e0b":ratio>0.50?"#ef4444":"#10b981"; ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx,cy,radius,0,2*Math.PI); ctx.strokeStyle = ratio<0.22?"#f59e0b":ratio>0.50?"#ef4444":"#10b981"; ctx.lineWidth=4; ctx.shadowBlur=24; ctx.shadowColor=ratio<0.22?"#f59e0b":ratio>0.50?"#ef4444":"#10b981"; ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx,cy,radius-12,0,2*Math.PI); ctx.strokeStyle="rgba(255,255,255,0.5)"; ctx.lineWidth=2; ctx.shadowBlur=0; ctx.setLineDash([8,12]); ctx.lineDashOffset=-((Date.now()*0.02)%20); ctx.stroke(); ctx.setLineDash([]);
+        const pts = det.landmarks.positions; ctx.fillStyle="rgba(255,255,255,0.9)"; ctx.shadowBlur=8; ctx.shadowColor="#3888ff"; pts.forEach(p=>{ ctx.beginPath(); ctx.arc(p.x,p.y,1.8,0,2*Math.PI); ctx.fill(); });
         ctx.restore();
     }
+    function setGuidance(type,icon,text) { guidanceChip.className=`guidance-chip ${type}`; guidanceChip.querySelector(".icon").textContent=icon; guidanceText.textContent=text; }
+    function setProx(cls,label) { proxDot.className=`prox-dot ${cls}`; proxText.textContent=label; }
+    function resetProx() { proxDot.className="prox-dot"; proxText.textContent="—"; cameraWrap.className="camera-wrap"; }
+    function enableCaptureButton() { btnCapture.disabled=false; btnCapture.classList.add("ready"); captureHint.textContent="tap to analyze"; }
+    function disableCaptureButton() { btnCapture.disabled=true; btnCapture.classList.remove("ready"); }
 
-    function setGuidance(type, icon, text) { 
-        guidanceChip.className = `guidance-chip ${type}`; 
-        guidanceChip.querySelector(".icon").textContent = icon; 
-        guidanceText.textContent = text; 
-    }
-
-    function setProx(cls, label) { 
-        proxDot.className = `prox-dot ${cls}`; 
-        proxText.textContent = label; 
-    }
-
-    function resetProx() { 
-        proxDot.className = "prox-dot"; 
-        proxText.textContent = "—"; 
-        cameraWrap.className = "camera-wrap"; 
-    }
-
-    function enableCaptureButton() { 
-        btnCapture.disabled = false; 
-        btnCapture.classList.add("ready"); 
-        captureHint.textContent = "tap to analyze"; 
-    }
-
-    function disableCaptureButton() { 
-        btnCapture.disabled = true; 
-        btnCapture.classList.remove("ready"); 
-    }
-
-    /* ═══════════════════════════════════════════════════════════
-     * CAPTURE & ANALYSIS (unchanged, fills scanData)
-     * ═══════════════════════════════════════════════════════════ */
-    btnCapture.addEventListener("click", async () => {
-        if (btnCapture.disabled || isAnalyzing) return;
-        isAnalyzing = true; 
-        if (rafId) cancelAnimationFrame(rafId);
-        cameraWrap.classList.add("scanning"); 
-        btnCapture.classList.remove("ready"); 
-        btnCapture.disabled = true; 
-        captureHint.textContent = "⚡ analyzing...";
-        if (navigator.vibrate) navigator.vibrate([20, 10, 30]);
-        let capCanvas = document.createElement("canvas"); 
-        capCanvas.width = video.videoWidth || 1280; 
-        capCanvas.height = video.videoHeight || 720;
-        const capCtx = capCanvas.getContext("2d"); 
-        capCtx.translate(capCanvas.width, 0); 
-        capCtx.scale(-1, 1); 
-        capCtx.drawImage(video, 0, 0);
-        const MAX_W = 800; 
-        if (capCanvas.width > MAX_W) { 
-            const ratio = MAX_W / capCanvas.width; 
-            const small = document.createElement("canvas"); 
-            small.width = MAX_W; 
-            small.height = Math.round(capCanvas.height * ratio); 
-            small.getContext("2d").drawImage(capCanvas, 0, 0, small.width, small.height); 
-            capCanvas = small; 
-        }
-        const base64 = capCanvas.toDataURL("image/jpeg", 0.85); 
-        const nowDate = new Date();
-        const metrics = { 
-            timestamp: nowDate.toLocaleString(), 
-            imageBase64: base64 
-        };
-        if (modelsReady && !offlineMode) {
+    /* ========== CAPTURE & ANALYSIS ========== */
+    btnCapture.addEventListener("click", async ()=>{
+        if(btnCapture.disabled||isAnalyzing) return;
+        isAnalyzing=true; if(rafId) cancelAnimationFrame(rafId);
+        cameraWrap.classList.add("scanning"); btnCapture.classList.remove("ready"); btnCapture.disabled=true; captureHint.textContent="⚡ analyzing...";
+        if(navigator.vibrate) navigator.vibrate([20,10,30]);
+        let capCanvas = document.createElement("canvas"); capCanvas.width = video.videoWidth||1280; capCanvas.height = video.videoHeight||720;
+        const capCtx = capCanvas.getContext("2d"); capCtx.translate(capCanvas.width,0); capCtx.scale(-1,1); capCtx.drawImage(video,0,0);
+        const MAX_W=800; if(capCanvas.width>MAX_W) { const ratio=MAX_W/capCanvas.width; const small=document.createElement("canvas"); small.width=MAX_W; small.height=Math.round(capCanvas.height*ratio); small.getContext("2d").drawImage(capCanvas,0,0,small.width,small.height); capCanvas=small; }
+        const base64 = capCanvas.toDataURL("image/jpeg",0.85); const nowDate = new Date();
+        const metrics = { timestamp:nowDate.toLocaleString(), imageBase64:base64 };
+        if(modelsReady&&!offlineMode) {
             try {
-                const det = await faceapi
-                    .detectSingleFace(capCanvas, new faceapi.TinyFaceDetectorOptions({ 
-                        inputSize: 416, 
-                        scoreThreshold: 0.4 
-                    }))
-                    .withFaceLandmarks(true)
-                    .withAgeAndGender();
-                if (det) {
-                    const box = det.detection.box; 
-                    const lm = det.landmarks; 
-                    const W = capCanvas.width;
-                    metrics.ageRaw = Math.round(det.age); 
-                    metrics.age = metrics.ageRaw + " yrs"; 
-                    metrics.gender = det.gender === "male" ? "Male" : "Female";
-                    const lEye = lm.getLeftEye(); 
-                    const rEye = lm.getRightEye(); 
-                    const lPupil = lEye[Math.floor(lEye.length / 2)]; 
-                    const rPupil = rEye[Math.floor(rEye.length / 2)]; 
-                    const pdPx = Math.abs(rPupil.x - lPupil.x); 
-                    const pdMm = Math.round((pdPx / W) * 140); 
-                    metrics.pd = pdMm + " mm"; 
-                    metrics.ipd = metrics.pd; 
-                    metrics.npc = Math.round(pdMm * 0.95) + " mm"; 
-                    const mmPerPx = pdMm / (pdPx || 1);
-                    metrics.faceWidthMm = Math.round(box.width * mmPerPx); 
-                    metrics.faceHeightMm = Math.round(box.height * mmPerPx);
-                    const lIn = lm.positions[39]; 
-                    const rIn = lm.positions[42]; 
-                    metrics.bridgeWidthMm = Math.round(Math.abs(rIn.x - lIn.x) * mmPerPx);
-                    const lOuter = lm.positions[36]; 
-                    const rOuter = lm.positions[45]; 
-                    const avgEyeW = (Math.abs(lIn.x - lOuter.x) + Math.abs(rOuter.x - rIn.x)) / 2; 
-                    metrics.lensWidthMm = Math.round(avgEyeW * mmPerPx);
-                    const r = box.width / W; 
-                    if (r < 0.28) metrics.frameSize = "Slim (132 mm)"; 
-                    else if (r > 0.47) metrics.frameSize = "Wide (150 mm)"; 
-                    else metrics.frameSize = "Classic (142 mm)";
-                    const jaw = lm.getJawOutline(); 
-                    const jawW = Math.abs(jaw[jaw.length - 1].x - jaw[0].x); 
-                    const hw = box.height / (box.width || 1); 
-                    const jr = jawW / (box.width || 1); 
-                    let shape = "Oval"; 
-                    if (hw > 1.22) shape = "Long"; 
-                    else if (jr > 0.92) shape = "Square"; 
-                    else if (hw < 0.95) shape = "Round"; 
+                const det = await faceapi.detectSingleFace(capCanvas, new faceapi.TinyFaceDetectorOptions({ inputSize:416, scoreThreshold:0.4 })).withFaceLandmarks(true).withAgeAndGender();
+                if(det) {
+                    const box=det.detection.box, lm=det.landmarks, W=capCanvas.width;
+                    metrics.ageRaw = Math.round(det.age); metrics.age = metrics.ageRaw+" yrs"; metrics.gender = det.gender==="male"?"Male":"Female";
+                    const lEye=lm.getLeftEye(), rEye=lm.getRightEye(), lPupil=lEye[Math.floor(lEye.length/2)], rPupil=rEye[Math.floor(rEye.length/2)];
+                    const pdPx = Math.abs(rPupil.x-lPupil.x); const pdMm = Math.round((pdPx/W)*140); metrics.pd = pdMm+" mm"; metrics.ipd = metrics.pd; metrics.npc = Math.round(pdMm*0.95)+" mm";
+                    const mmPerPx = pdMm/(pdPx||1);
+                    metrics.faceWidthMm = Math.round(box.width*mmPerPx); metrics.faceHeightMm = Math.round(box.height*mmPerPx);
+                    const lIn=lm.positions[39], rIn=lm.positions[42]; metrics.bridgeWidthMm = Math.round(Math.abs(rIn.x-lIn.x)*mmPerPx);
+                    const lOuter=lm.positions[36], rOuter=lm.positions[45]; const avgEyeW = (Math.abs(lIn.x-lOuter.x)+Math.abs(rOuter.x-rIn.x))/2; metrics.lensWidthMm = Math.round(avgEyeW*mmPerPx);
+                    const r = box.width/W; if(r<0.28) metrics.frameSize = "Slim (132 mm)"; else if(r>0.47) metrics.frameSize = "Wide (150 mm)"; else metrics.frameSize = "Classic (142 mm)";
+                    const jaw = lm.getJawOutline(); const jawW = Math.abs(jaw[jaw.length-1].x-jaw[0].x); const hw = box.height/(box.width||1); const jr = jawW/(box.width||1); let shape="Oval";
+                    if(hw>1.22) shape="Long"; else if(jr>0.92) shape="Square"; else if(hw<0.95) shape="Round";
                     metrics.faceShape = shape;
-                    const recs = { 
-                        "Square": "Round / Oval frames", 
-                        "Round": "Rectangular / Wayfarer", 
-                        "Long": "Clubmaster / Browline", 
-                        "Oval": "Aviator / Geometric" 
-                    }; 
-                    metrics.recommendation = recs[shape] || "Wayfarer / Aviator";
-                    toast("AI analysis complete!", "success");
-                } else { 
-                    toast("Face not detected in capture. Using fallback values.", "warning"); 
-                }
-            } catch (e) { 
-                console.warn("Analysis error:", e); 
-                toast("Analysis error. Using fallback values.", "warning"); 
-            }
+                    const recs = { Square:"Round / Oval frames", Round:"Rectangular / Wayfarer", Long:"Clubmaster / Browline", Oval:"Aviator / Geometric" };
+                    metrics.recommendation = recs[shape]||"Wayfarer / Aviator";
+                    toast("AI analysis complete!","success");
+                } else { toast("Face not detected in capture. Using fallback values.","warning"); }
+            } catch(e) { console.warn("Analysis error:",e); toast("Analysis error. Using fallback values.","warning"); }
         }
-        const d = { 
-            age: metrics.age || "-- yrs", 
-            gender: metrics.gender || "--", 
-            pd: metrics.pd || "62 mm", 
-            ipd: metrics.ipd || "62 mm", 
-            npc: metrics.npc || "59 mm", 
-            frameSize: metrics.frameSize || "Classic (142 mm)", 
-            faceShape: metrics.faceShape || "Oval", 
-            recommendation: metrics.recommendation || "Wayfarer / Aviator", 
-            bridgeWidthMm: metrics.bridgeWidthMm || 18, 
-            lensWidthMm: metrics.lensWidthMm || 52, 
-            faceWidthMm: metrics.faceWidthMm || 142, 
-            faceHeightMm: metrics.faceHeightMm || 188, 
-            timestamp: metrics.timestamp, 
-            imageBase64: base64 
-        };
-        Object.assign(scanData, d);
-        $("out-pd").textContent = d.pd; 
-        $("out-age").textContent = d.age; 
-        $("out-gender").textContent = d.gender; 
-        $("out-shape").textContent = d.faceShape; 
-        $("out-size").textContent = d.frameSize; 
-        $("out-rec").textContent = d.recommendation;
-        if (resultThumb) { 
-            const t = resultThumb.getContext("2d"); 
-            resultThumb.width = 200; 
-            resultThumb.height = 200; 
-            t.drawImage(capCanvas, 0, 0, 200, 200); 
-        }
-        $("form-frame-size").textContent = d.frameSize; 
-        $("form-frame-rec").textContent = d.recommendation; 
-        $("form-ai-age").textContent = d.age; 
-        $("form-pd").textContent = d.pd;
-        cameraWrap.classList.remove("scanning"); 
-        isAnalyzing = false; 
-        captureHint.textContent = "tap to analyze"; 
-        showScreen("results");
+        const d = { age:metrics.age||"-- yrs", gender:metrics.gender||"--", pd:metrics.pd||"62 mm", ipd:metrics.ipd||"62 mm", npc:metrics.npc||"59 mm", frameSize:metrics.frameSize||"Classic (142 mm)", faceShape:metrics.faceShape||"Oval", recommendation:metrics.recommendation||"Wayfarer / Aviator", bridgeWidthMm:metrics.bridgeWidthMm||18, lensWidthMm:metrics.lensWidthMm||52, faceWidthMm:metrics.faceWidthMm||142, faceHeightMm:metrics.faceHeightMm||188, timestamp:metrics.timestamp, imageBase64:base64 };
+        Object.assign(scanData,d);
+        $("out-pd").textContent=d.pd; $("out-age").textContent=d.age; $("out-gender").textContent=d.gender; $("out-shape").textContent=d.faceShape; $("out-size").textContent=d.frameSize; $("out-rec").textContent=d.recommendation;
+        if(resultThumb) { const t=resultThumb.getContext("2d"); resultThumb.width=200; resultThumb.height=200; t.drawImage(capCanvas,0,0,200,200); }
+        $("form-frame-size").textContent=d.frameSize; $("form-frame-rec").textContent=d.recommendation; $("form-ai-age").textContent=d.age; $("form-pd").textContent=d.pd;
+        cameraWrap.classList.remove("scanning"); isAnalyzing=false; captureHint.textContent="tap to analyze"; showScreen("results");
     });
 
-    /* ═══════════════════════════════════════════════════════════
-     * 📧 SMTP EMAIL SENDING (ONLY METHOD)
-     * ═══════════════════════════════════════════════════════════ */
+    /* ========== SMTP SEND ========== */
     async function sendViaSmtp(payload) {
-        if (typeof Email === "undefined") {
-            throw new Error("SMTP.js library not loaded");
-        }
+        await ensureSmtpJs(); // 🔥 Guarantee library is loaded
         
         const result = await Email.send({
             Host:     CFG.smtp.Host,
@@ -944,199 +545,77 @@
         }
     }
 
-    /* ═══════════════════════════════════════════════════════════
-     * EMAIL HTML TEMPLATE (full detailed report with image)
-     * ═══════════════════════════════════════════════════════════ */
+    /* ========== EMAIL HTML TEMPLATE ========== */
     function buildEmailHtml(d) {
-        const row = (label, value) => `
-            <tr>
-                <td style="padding:10px 14px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;vertical-align:top;border-bottom:1px solid #f3f4f6">${label}</td>
-                <td style="padding:10px 14px;font-size:14px;font-weight:600;color:#111827;border-bottom:1px solid #f3f4f6">${value || '—'}</td>
-            </tr>`;
-            
-        const section = (title, rows) => `
-            <div style="margin-bottom:28px">
-                <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#2563eb;margin-bottom:12px;padding-left:4px;display:flex;align-items:center;gap:6px">${title}</div>
-                <table style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb">
-                    <tbody>${rows}</tbody>
-                </table>
-            </div>`;
-
-        return `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LensAI Pro Report</title>
-</head>
-<body style="margin:0;padding:28px;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
-<div style="max-width:640px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12)">
-  
-  <div style="background:linear-gradient(135deg,#1e40af,#7c3aed);padding:32px 36px;color:#fff">
-    <div style="font-size:32px;font-weight:800;letter-spacing:-.04em;margin-bottom:6px">👓 LensAI Pro</div>
-    <div style="font-size:14px;opacity:.9;letter-spacing:.02em">22-Point Biometric Facial Analysis Report</div>
-  </div>
-  
-  <div style="padding:32px 36px">
-    
-    ${d.imageBase64 ? `
-    <div style="text-align:center;margin-bottom:32px">
-        <img src="${d.imageBase64}" alt="Face scan" style="max-width:100%;max-height:400px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,.18)"/>
-    </div>` : ""}
-
-    ${section("👤 Personal Information",
-        row("Full Name",     d.name)      +
-        row("Mobile",        d.phone)     +
-        row("Age (entered)", d.ageInput || '—')  +
-        row("Date of Birth", d.dob || '—')       +
-        row("Gender",        d.genderInput || '—')+
-        row("Address",       d.address || '—')  +
-        row("Ward No",       d.wardNo || '—')   +
-        row("Booth / PS No", d.boothNo || '—')
-    )}
-
-    ${section("🤖 AI Biometric Analysis",
-        row("Age (AI)",      d.age)       +
-        row("Gender (AI)",   d.gender)    +
-        row("Face Shape",    d.faceShape) +
-        row("Frame Size",    d.frameSize) +
-        row("PD (Pupillary Distance)", d.pd) +
-        row("IPD",           d.ipd)       +
-        row("NPC",           d.npc)       +
-        row("Face Width",    (d.faceWidthMm  || "—") + " mm") +
-        row("Face Height",   (d.faceHeightMm || "—") + " mm") +
-        row("Bridge Width",  (d.bridgeWidthMm|| "—") + " mm") +
-        row("Lens Width",    (d.lensWidthMm  || "—") + " mm")
-    )}
-
-    <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:14px;padding:20px 24px;margin-bottom:28px;border:2px solid #fbbf24">
-        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#92400e;margin-bottom:8px">✨ Recommended Frame Style</div>
-        <div style="font-size:24px;font-weight:800;color:#78350f;letter-spacing:-.02em">${d.recommendation || "Wayfarer / Aviator"}</div>
-    </div>
-
-    ${section("👓 Prescription Details",
-        row("Right Eye (O.D.)", d.rightOD || '—')    +
-        row("Left Eye (O.S.)",  d.leftOS || '—')     +
-        row("Spherical",        d.spherical || '—')  +
-        row("Cylindrical",      d.cylindrical || '—')+
-        row("Axis",             d.axis || '—')       +
-        row("Prism",            d.prism || '—')      +
-        row("Base",             d.base || '—')       +
-        row("Add Power",        d.power || '—')
-    )}
-
-    <div style="text-align:center;color:#9ca3af;font-size:12px;border-top:1px solid #e5e7eb;padding-top:24px;margin-top:8px">
-        <div style="margin-bottom:8px"><strong>Scan Date:</strong> ${d.timestamp || new Date().toLocaleString()}</div>
-        <div style="margin-top:10px">Generated by <strong>LensAI Pro</strong> · Virtual Try-On System</div>
-        <div style="margin-top:12px;color:#c0c0c0;font-size:11px">
-            This is an automated AI report. Please consult a licensed optometrist for professional advice.
-        </div>
-    </div>
-  </div>
-</div>
-</body>
-</html>`;
+        const row = (label,value)=>`<tr><td style="padding:10px 14px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;vertical-align:top;border-bottom:1px solid #f3f4f6">${label}</td><td style="padding:10px 14px;font-size:14px;font-weight:600;color:#111827;border-bottom:1px solid #f3f4f6">${value||'—'}</td></tr>`;
+        const section = (title,rows)=>`<div style="margin-bottom:28px"><div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#2563eb;margin-bottom:12px;padding-left:4px;display:flex;align-items:center;gap:6px">${title}</div><table style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb"><tbody>${rows}</tbody></table></div>`;
+        return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>LensAI Pro Report</title></head><body style="margin:0;padding:28px;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif"><div style="max-width:640px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12)"><div style="background:linear-gradient(135deg,#1e40af,#7c3aed);padding:32px 36px;color:#fff"><div style="font-size:32px;font-weight:800;letter-spacing:-.04em;margin-bottom:6px">👓 LensAI Pro</div><div style="font-size:14px;opacity:.9;letter-spacing:.02em">22-Point Biometric Facial Analysis Report</div></div><div style="padding:32px 36px">${d.imageBase64?`<div style="text-align:center;margin-bottom:32px"><img src="${d.imageBase64}" alt="Face scan" style="max-width:100%;max-height:400px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,.18)"/></div>`:""}${section("👤 Personal Information",row("Full Name",d.name)+row("Mobile",d.phone)+row("Age (entered)",d.ageInput||'—')+row("Date of Birth",d.dob||'—')+row("Gender",d.genderInput||'—')+row("Address",d.address||'—')+row("Ward No",d.wardNo||'—')+row("Booth / PS No",d.boothNo||'—'))}${section("🤖 AI Biometric Analysis",row("Age (AI)",d.age)+row("Gender (AI)",d.gender)+row("Face Shape",d.faceShape)+row("Frame Size",d.frameSize)+row("PD (Pupillary Distance)",d.pd)+row("IPD",d.ipd)+row("NPC",d.npc)+row("Face Width",(d.faceWidthMm||"—")+" mm")+row("Face Height",(d.faceHeightMm||"—")+" mm")+row("Bridge Width",(d.bridgeWidthMm||"—")+" mm")+row("Lens Width",(d.lensWidthMm||"—")+" mm"))}<div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:14px;padding:20px 24px;margin-bottom:28px;border:2px solid #fbbf24"><div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#92400e;margin-bottom:8px">✨ Recommended Frame Style</div><div style="font-size:24px;font-weight:800;color:#78350f;letter-spacing:-.02em">${d.recommendation||"Wayfarer / Aviator"}</div></div>${section("👓 Prescription Details",row("Right Eye (O.D.)",d.rightOD||'—')+row("Left Eye (O.S.)",d.leftOS||'—')+row("Spherical",d.spherical||'—')+row("Cylindrical",d.cylindrical||'—')+row("Axis",d.axis||'—')+row("Prism",d.prism||'—')+row("Base",d.base||'—')+row("Add Power",d.power||'—'))}<div style="text-align:center;color:#9ca3af;font-size:12px;border-top:1px solid #e5e7eb;padding-top:24px;margin-top:8px"><div style="margin-bottom:8px"><strong>Scan Date:</strong> ${d.timestamp||new Date().toLocaleString()}</div><div style="margin-top:10px">Generated by <strong>LensAI Pro</strong> · Virtual Try-On System</div><div style="margin-top:12px;color:#c0c0c0;font-size:11px">This is an automated AI report. Please consult a licensed optometrist for professional advice.</div></div></div></div></body></html>`;
     }
 
-    /* ═══════════════════════════════════════════════════════════
-     * FORM SUBMIT HANDLER – SEND VIA SMTP
-     * ═══════════════════════════════════════════════════════════ */
-    finalForm.addEventListener("submit", async (e) => {
+    /* ========== FORM SUBMIT ========== */
+    finalForm.addEventListener("submit", async (e)=>{
         e.preventDefault();
+        const name = $("in-name").value.trim(), phone = $("in-phone").value.trim();
+        if(!name) { toast("Full name is required","error"); $("in-name").focus(); return; }
+        if(!phone||!/^\d{10}$/.test(phone)) { toast("Enter a valid 10-digit mobile number","error"); $("in-phone").focus(); return; }
 
-        const name = $("in-name").value.trim();
-        const phone = $("in-phone").value.trim();
-
-        if (!name) { 
-            toast("Full name is required", "error"); 
-            $("in-name").focus(); 
-            return; 
-        }
-        if (!phone || !/^\d{10}$/.test(phone)) { 
-            toast("Enter a valid 10-digit mobile number", "error"); 
-            $("in-phone").focus(); 
-            return; 
-        }
-
-        const btn = $("btn-submit");
-        const statusEl = $("form-status");
-        btn.disabled = true;
-        btn.innerHTML = '<span style="animation:spin 1s linear infinite;display:inline-block">⏳</span> Sending...';
+        const btn = $("btn-submit"), statusEl = $("form-status");
+        btn.disabled = true; btn.innerHTML = '<span style="animation:spin 1s linear infinite;display:inline-block">⏳</span> Sending...';
         statusEl.textContent = "Sending email report...";
 
         const payload = {
-            name,
-            phone,
-            ageInput:    $("in-age-input").value.trim(),
-            dob:         $("in-dob").value,
+            name, phone,
+            ageInput: $("in-age-input").value.trim(),
+            dob: $("in-dob").value,
             genderInput: $("in-gender-input").value,
-            address:     $("in-address").value.trim(),
-            wardNo:      $("in-ward").value.trim(),
-            boothNo:     $("in-booth").value.trim(),
-            rightOD:     $("in-od").value.trim(),
-            leftOS:      $("in-os").value.trim(),
-            spherical:   $("in-sph").value.trim(),
+            address: $("in-address").value.trim(),
+            wardNo: $("in-ward").value.trim(),
+            boothNo: $("in-booth").value.trim(),
+            rightOD: $("in-od").value.trim(),
+            leftOS: $("in-os").value.trim(),
+            spherical: $("in-sph").value.trim(),
             cylindrical: $("in-cyl").value.trim(),
-            axis:        $("in-axis").value.trim(),
-            prism:       $("in-prism").value.trim(),
-            base:        $("in-base").value.trim(),
-            power:       $("in-add").value.trim(),
+            axis: $("in-axis").value.trim(),
+            prism: $("in-prism").value.trim(),
+            base: $("in-base").value.trim(),
+            power: $("in-add").value.trim(),
             ...scanData
         };
 
         try {
             await sendViaSmtp(payload);
-            
-            statusEl.textContent = "✅ Report sent successfully!";
-            statusEl.style.color = "#10b981";
-            toast("Email sent to Jagatdal106VS@gmail.com ✅", "success");
-
-            // Reset form after success
-            setTimeout(() => {
-                LensAI.closeForm();
-                LensAI.resetCamera();
-                finalForm.reset();
-                statusEl.textContent = "📧 Full report with face image will be emailed securely";
-                statusEl.style.color = "";
-            }, 2500);
-        } catch (err) {
-            console.error("Send error:", err);
-            toast("Failed to send: " + err.message, "error");
-            statusEl.textContent = "❌ Send failed — check App Password and SMTP settings";
-            statusEl.style.color = "#ef4444";
+            statusEl.textContent = "✅ Report sent successfully!"; statusEl.style.color = "#10b981";
+            toast("Email sent to Jagatdal106VS@gmail.com ✅","success");
+            setTimeout(()=>{ LensAI.closeForm(); LensAI.resetCamera(); finalForm.reset(); statusEl.textContent = "📧 Full report with face image will be emailed securely"; statusEl.style.color = ""; },2500);
+        } catch(err) {
+            console.error("Send error:",err);
+            toast("Failed to send: " + err.message,"error");
+            statusEl.textContent = "❌ Send failed — check App Password and internet connection"; statusEl.style.color = "#ef4444";
         } finally {
             btn.disabled = false;
             btn.innerHTML = '<span>📤</span> Send Email Report';
         }
     });
 
-    /* ═══════════════════════════════════════════════════════════
-     * PUBLIC API (window.LensAI)
-     * ═══════════════════════════════════════════════════════════ */
+    /* ========== PUBLIC API ========== */
     window.LensAI = {
-        resetCamera() { 
-            if (currentStream) currentStream.getTracks().forEach(t => t.enabled = true); 
-            isAnalyzing = false; 
-            disableCaptureButton(); 
-            cameraWrap.className = "camera-wrap"; 
-            showScreen("camera"); 
-        },
-        openForm() { 
-            modalForm.classList.remove("hidden"); 
-        },
-        closeForm() { 
-            modalForm.classList.add("hidden"); 
-        }
+        resetCamera() { if(currentStream) currentStream.getTracks().forEach(t=>t.enabled=true); isAnalyzing=false; disableCaptureButton(); cameraWrap.className="camera-wrap"; showScreen("camera"); },
+        openForm() { modalForm.classList.remove("hidden"); },
+        closeForm() { modalForm.classList.add("hidden"); }
     };
-    
     btnOpenForm.addEventListener("click", LensAI.openForm);
 
-    /* ═══════════════════════════════════════════════════════════
-     * BOOT
-     * ═══════════════════════════════════════════════════════════ */
-    console.log("%c🚀 LensAI Pro – SMTP Email Enabled", "font-size:20px;font-weight:bold;color:#3888ff");
+    /* ========== BOOT ========== */
+    console.log("%c🚀 LensAI Pro – SMTP with Failproof Loading","font-size:20px;font-weight:bold;color:#3888ff");
+    // Pre‑warm SMTP.js – optional, but ensures it's ready
+    ensureSmtpJs().catch(err => console.warn(err.message));
     loadModels();
 })();
 </script>
+
+<!-- 🔥 IMPORTANT USAGE NOTE (visible on page) -->
+<div style="position:fixed; bottom:10px; left:10px; right:10px; background:rgba(0,0,0,0.7); backdrop-filter:blur(10px); color:#ffd966; padding:12px 20px; border-radius:40px; font-size:12px; text-align:center; z-index:9999; border:1px solid #fbbf24;">
+    ⚡ <strong>RUN THIS WITH A LOCAL SERVER</strong> – Open using <strong>Live Server</strong> (VS Code) or <code>python -m http.server</code>. Direct file:// will block SMTP.js!
+</div>
 </body>
 </html>
